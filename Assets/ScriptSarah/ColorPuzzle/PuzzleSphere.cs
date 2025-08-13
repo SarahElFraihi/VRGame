@@ -1,5 +1,5 @@
-using System.Collections;              // <-- needed for IEnumerator
 using UnityEngine;
+using System.Collections;
 
 public class PuzzleSphere : MonoBehaviour
 {
@@ -7,7 +7,7 @@ public class PuzzleSphere : MonoBehaviour
     public Color onColor = Color.white;
     public float litTime = 0.5f;
 
-    private Renderer rend;
+    Renderer rend;
 
     void Awake()
     {
@@ -15,23 +15,18 @@ public class PuzzleSphere : MonoBehaviour
         SetOff();
     }
 
-    // Default light-up using litTime
-    public void LightUp()
-    {
-        LightUp(litTime);
-    }
+    public void LightUp() => LightUp(litTime);
 
-    // Light-up with custom duration
-    public void LightUp(float overrideLitTime)
+    public void LightUp(float time)
     {
         StopAllCoroutines();
-        StartCoroutine(LightUpRoutine(overrideLitTime));
+        StartCoroutine(LightRoutine(time));
     }
 
-    private IEnumerator LightUpRoutine(float time)
+    IEnumerator LightRoutine(float t)
     {
         rend.material.color = onColor;
-        yield return new WaitForSeconds(time);
+        yield return new WaitForSeconds(t);
         SetOff();
     }
 

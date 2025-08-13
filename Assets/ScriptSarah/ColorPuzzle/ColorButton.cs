@@ -1,52 +1,57 @@
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using System;
+using System.Collections;
 
-[RequireComponent(typeof(UnityEngine.XR.Interaction.Toolkit.Interactables.XRSimpleInteractable))]
+[RequireComponent(typeof(XRSimpleInteractable))]
 public class ColorButtonVR : MonoBehaviour
 {
-    public int buttonIndex;                     // 0=Green,1=Blue,2=Yellow,3=Red
-    public Color pressLitColor = Color.white;   // quick flash when pressed
+    [Tooltip("0=Green, 1=Blue, 2=Yellow, 3=Red")]
+    public int buttonIndex;
+
+    [Header("Press feedback")]
+    public Color pressLitColor = Color.white;
     public float pressLitTime = 0.15f;
-    public AudioSource clickSfx;                // optional
+    public AudioSource clickSfx;
+    public float pressCooldown = 0.15f;   // debounce
 
-    private Renderer rend;
-    private Color original;
+    public Action<int> OnPressed;
 
-    public System.Action<int> OnPressed;        // set by manager
+    XRSimpleInteractable xri;
+    Renderer rend;
+    Color original;
+    float lastPress = -999f;
 
     void Awake()
     {
-        var interactable = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRSimpleInteractable>();
-        interactable.selectEntered.AddListener(OnSelectEntered);
+        xri = GetComponent<XRSimpleInteractable>();
+        xri.selectEntered.AddListener(OnSelectEntered);
 
         rend = GetComponent<Renderer>();
-        if (rend != null) original = rend.material.color;
+        if (rend) original = rend.material.color;
     }
 
-    private void OnDestroy()
+    void OnDestroy()
     {
-        var interactable = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRSimpleInteractable>();
-        if (interactable != null) interactable.selectEntered.RemoveListener(OnSelectEntered);
+        if (xri) xri.selectEntered.RemoveListener(OnSelectEntered);
     }
 
-    private void OnSelectEntered(SelectEnterEventArgs args)
+    void OnSelectEntered(SelectEnterEventArgs _)
     {
+        if (Time.time - lastPress < pressCooldown) return;
+        lastPress = Time.time;
+
         clickSfx?.Play();
-        Flash();
+        if (rend) StartCoroutine(Flash());
         OnPressed?.Invoke(buttonIndex);
     }
 
-    private void Flash()
+    IEnumerator Flash()
     {
-        if (rend == null) return;
-        StopAllCoroutines();
-        StartCoroutine(FlashRoutine());
-    }
-
-    private System.Collections.IEnumerator FlashRoutine()
-    {
+        var c = rend.material.color;
         rend.material.color = pressLitColor;
         yield return new WaitForSeconds(pressLitTime);
-        rend.material.color = original;
+        rend.material.color = c;
     }
 }
