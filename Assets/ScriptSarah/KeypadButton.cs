@@ -2,62 +2,79 @@ using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
+[RequireComponent(typeof(XRSimpleInteractable))]
+[RequireComponent(typeof(Collider))]
 public class KeypadButton : MonoBehaviour
 {
     public enum Kind { Digit, Backspace, Clear, Enter }
+
     [Header("Behavior")]
     public Kind kind = Kind.Digit;
     public string digit = "0";                 // used if Kind == Digit
     public KeypadController controller;
 
     [Header("Visuals")]
-    public Renderer targetRenderer;            // leave empty to use Renderer on this object
+    // Leave empty to use this GameObject's Renderer
+    public Renderer targetRenderer;
     public Color idleColor = Color.white;
     public Color pressedColor = Color.green;
 
     [Header("Debounce")]
-    [Tooltip("Minimum seconds between accepted presses.")]
     public float pressCooldown = 0.15f;
 
     [Header("Debug")]
-    public bool logWhoPressed = false;
+    public bool logWhoPressed;
 
-    private XRSimpleInteractable xri;
-    private Renderer rend;
-    private float lastPressTime = -999f;
+    Renderer rend;
+    XRSimpleInteractable interactable;
+    float lastPressTime = -999f;
 
     void Awake()
     {
-        xri = GetComponent<XRSimpleInteractable>();
-        rend = targetRenderer ? targetRenderer : GetComponent<Renderer>();
-        if (rend) rend.material.color = idleColor; // start color
+        interactable = GetComponent<XRSimpleInteractable>();
+        rend = targetRenderer != null ? targetRenderer : GetComponent<Renderer>();
+
+        // Initial color
+        if (rend) rend.material.color = idleColor;
+
+        // Subscribe to XR events
+        interactable.selectEntered.AddListener(HandleSelectEntered);
+        interactable.selectExited.AddListener(HandleSelectExited);
+        // Optional: trigger press on Activate instead of Select
+        interactable.activated.AddListener(_ => TryPress());
     }
 
-    void OnEnable()
+    void OnDestroy()
     {
-        xri.selectEntered.AddListener(OnSelectEntered);
-        xri.selectExited.AddListener(OnSelectExited);
+        if (interactable != null)
+        {
+            interactable.selectEntered.RemoveListener(HandleSelectEntered);
+            interactable.selectExited.RemoveListener(HandleSelectExited);
+            interactable.activated.RemoveAllListeners();
+        }
     }
 
-    void OnDisable()
+    void HandleSelectEntered(SelectEnterEventArgs args)
     {
-        xri.selectEntered.RemoveListener(OnSelectEntered);
-        xri.selectExited.RemoveListener(OnSelectExited);
+        // Change color immediately when the trigger grabs/selects
+        if (rend) rend.material.color = pressedColor;
+        TryPress(args);
     }
 
-    private void OnSelectEntered(SelectEnterEventArgs args)
+    void HandleSelectExited(SelectExitEventArgs args)
     {
-        // Debounce: ignore if pressed too soon after the last press
+        if (rend) rend.material.color = idleColor;
+    }
+
+    void TryPress(SelectEnterEventArgs _ = null)
+    {
         if (Time.time - lastPressTime < pressCooldown) return;
         lastPressTime = Time.time;
 
         if (logWhoPressed)
-        {
-            var who = args.interactorObject?.transform?.name ?? "unknown";
-            Debug.Log($"[KeypadButton] pressed by {who} -> {digit}");
-        }
+            Debug.Log($"[Keypad] {(kind == Kind.Digit ? digit : kind.ToString())} pressed by {gameObject.name}");
 
-        if (rend) rend.material.color = pressedColor;
+        if (controller == null) return;
 
         switch (kind)
         {
@@ -66,10 +83,5 @@ public class KeypadButton : MonoBehaviour
             case Kind.Clear:     controller.ClearAll();       break;
             case Kind.Enter:     controller.Submit();         break;
         }
-    }
-
-    private void OnSelectExited(SelectExitEventArgs _)
-    {
-        if (rend) rend.material.color = idleColor;
     }
 }
