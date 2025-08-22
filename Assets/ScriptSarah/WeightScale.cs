@@ -12,20 +12,26 @@ public class WeightScale : MonoBehaviour
 
     [Header("UI Colors")]
     public Color tooLightColor = Color.white;
-    public Color tooHeavyColor = new Color(1f, 0.85f, 0.3f); // warm
+    public Color tooHeavyColor = new Color(1f, 0.85f, 0.3f);
     public Color okColor = Color.green;
 
     [Header("Reward")]
     public GameObject codeRevealObject;
 
+    [Header("Audio")]
+    public AudioSource successSfx;     // assign in Inspector
+    public AudioClip successClip;      // optional: if set, uses PlayOneShot
+
     private readonly System.Collections.Generic.HashSet<WeightItem> onScale = new();
     private int currentWeight;
+    private bool solved;
 
     void Start()
     {
         if (targetText) targetText.text = $"{targetWeight} kg";
         UpdateUI();
         if (codeRevealObject) codeRevealObject.SetActive(false);
+        solved = false;
     }
 
     void OnTriggerEnter(Collider other)
@@ -52,7 +58,6 @@ public class WeightScale : MonoBehaviour
     void UpdateUI()
     {
         if (!currentText) return;
-
         currentText.text = $"{currentWeight} kg";
         if (currentWeight == targetWeight) currentText.color = okColor;
         else if (currentWeight > targetWeight) currentText.color = tooHeavyColor;
@@ -61,10 +66,21 @@ public class WeightScale : MonoBehaviour
 
     void CheckWeight()
     {
+        if (solved) return;
         if (currentWeight == targetWeight)
         {
+            solved = true;
+
             if (codeRevealObject) codeRevealObject.SetActive(true);
-            Debug.Log("Correct weight! Code revealed.");
+
+            if (successSfx)
+            {
+                if (successClip) successSfx.PlayOneShot(successClip);
+                else successSfx.Play();
+            }
+
+            // Optional: prevent further changes
+            // GetComponent<Collider>().enabled = false;
         }
     }
 }
